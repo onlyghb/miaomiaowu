@@ -1,0 +1,50 @@
+name: Sync upstream
+
+on:
+  workflow_dispatch:
+  # Uncomment to check every Monday at 00:00 UTC (08:00 Singapore time).
+  # schedule:
+  #   - cron: '0 0 * * 1'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+jobs:
+  open-pull-request:
+    # Cross-repository comparisons require a fork in the same fork network.
+    if: github.event.repository.fork == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Open a PR from upstream main into this fork
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          pr_url=$(gh api --method GET "repos/${GITHUB_REPOSITORY}/pulls" \
+            -f state=open -f base=main -f head=iluobei:main \
+            --jq '.[0].html_url // empty')
+          if [ -n "$pr_url" ]; then
+            echo "Existing upstream sync PR: $pr_url" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          ahead=$(gh api "repos/${GITHUB_REPOSITORY}/compare/main...iluobei:main" \
+            --jq '.ahead_by')
+          if [ "$ahead" -eq 0 ]; then
+            echo 'No new upstream commits.' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          pr_url=$(gh api --method POST "repos/${GITHUB_REPOSITORY}/pulls" \
+            -f title='同步上游 main' \
+            -f base=main -f head=iluobei:main \
+            -f body='将 iluobei/miaomiaowu 的 main 合并到当前 Fork。请检查改动、解决冲突并验证构建，再使用 Create a merge commit 合并，以保留上游历史并避免重复同步。此工作流不会自动合并。' \
+            --jq '.html_url')
+          echo "Upstream sync PR: $pr_url" >> "$GITHUB_STEP_SUMMARY"

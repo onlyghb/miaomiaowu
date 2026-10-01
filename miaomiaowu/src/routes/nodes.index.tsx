@@ -38,6 +38,7 @@ import {
   Activity,
   Eye,
   Copy,
+  QrCode,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -144,6 +145,7 @@ import {
 import { ExternalSyncNodeDialog } from '@/components/external-sync-node-dialog'
 import { FlagEmojiPicker } from '@/components/flag-emoji-picker'
 import { NodeProbeDialog } from '@/components/node-probe-dialog'
+import { NodeQrCodeDialog } from '@/components/node-qr-code-dialog'
 import { SpeedTestDialog } from '@/components/speedtest-dialog'
 import { Twemoji } from '@/components/twemoji'
 
@@ -194,6 +196,15 @@ type TempNode = {
   isSaved?: boolean
   dbId?: number
   dbNode?: ParsedNode
+}
+
+function getNodeUri(node: ParsedNode): string {
+  const config = JSON.parse(node.clash_config)
+  const uri = URI_Producer().produce(config)
+  if (!uri) {
+    throw new Error(`不支持将 ${config.type} 节点转换为 URI`)
+  }
+  return uri
 }
 
 const PROTOCOL_COLORS: Record<string, string> = {
@@ -840,6 +851,7 @@ function NodesPage() {
   // URI 复制状态
   const [uriDialogOpen, setUriDialogOpen] = useState(false)
   const [uriContent, setUriContent] = useState<string>('')
+  const [qrNode, setQrNode] = useState<{ name: string; uri: string } | null>(null)
 
   // 临时订阅状态
   const [speedDialogOpen, setSpeedDialogOpen] = useState(false)
@@ -1514,12 +1526,7 @@ function NodesPage() {
     if (!node.clash_config) return
 
     try {
-      // 解析 Clash 配置
-      const clashConfig = JSON.parse(node.clash_config)
-
-      // 使用 URI producer 转换为 URI
-      const producer = URI_Producer()
-      const uri = producer.produce(clashConfig)
+      const uri = getNodeUri(node)
 
       // 尝试复制到剪贴板
       try {
@@ -1530,6 +1537,17 @@ function NodesPage() {
         setUriContent(uri)
         setUriDialogOpen(true)
       }
+    } catch (error) {
+      toast.error(
+        '生成 URI 失败: ' +
+          (error instanceof Error ? error.message : String(error))
+      )
+    }
+  }, [])
+
+  const handleShowQrCode = useCallback((node: ParsedNode) => {
+    try {
+      setQrNode({ name: node.node_name, uri: getNodeUri(node) })
     } catch (error) {
       toast.error(
         '生成 URI 失败: ' +
@@ -3870,6 +3888,7 @@ vless://uuid@example.com:443?type=ws&security=tls&path=/websocket#VLESS节点
                       <Undo2 className='inline h-4 w-4' /> 恢复原始域名，
                       <Eye className='inline h-4 w-4' /> 查看修改配置，
                       <Copy className='inline h-4 w-4' /> 复制URI，
+                      <QrCode className='inline h-4 w-4' /> 显示节点二维码，
                       <Link2 className='inline h-4 w-4' /> 生成临时订阅
                     </p>
                   </div>
@@ -4830,7 +4849,7 @@ vless://uuid@example.com:443?type=ws&security=tls&path=/websocket#VLESS节点
 
                                   {/* 操作按钮组 */}
                                   <div
-                                    className='flex items-center justify-center gap-2 border-t pt-2'
+                                    className='flex flex-wrap items-center justify-center gap-2 border-t pt-2'
                                     onClick={(e) => e.stopPropagation()}
                                   >
                                     {node.clash && (
@@ -4853,18 +4872,33 @@ vless://uuid@example.com:443?type=ws&security=tls&path=/websocket#VLESS节点
                                       </Button>
                                     )}
                                     {node.clash && node.isSaved && (
-                                      <Button
-                                        variant='outline'
-                                        size='sm'
-                                        className='flex-1'
-                                        onClick={() =>
-                                          node.isSaved &&
-                                          handleCopyUri(node.dbNode!)
-                                        }
-                                      >
-                                        <Copy className='mr-1 size-4' />
-                                        复制
-                                      </Button>
+                                      <>
+                                        <Button
+                                          variant='outline'
+                                          size='sm'
+                                          className='flex-1'
+                                          onClick={() =>
+                                            node.isSaved &&
+                                            handleCopyUri(node.dbNode!)
+                                          }
+                                        >
+                                          <Copy className='mr-1 size-4' />
+                                          复制
+                                        </Button>
+                                        <Button
+                                          variant='outline'
+                                          size='sm'
+                                          className='flex-1'
+                                          title='显示节点二维码'
+                                          aria-label='显示节点二维码'
+                                          onClick={() =>
+                                            handleShowQrCode(node.dbNode!)
+                                          }
+                                        >
+                                          <QrCode className='mr-1 size-4' />
+                                          二维码
+                                        </Button>
+                                      </>
                                     )}
                                     <AlertDialog>
                                       <AlertDialogTrigger asChild>
@@ -5344,7 +5378,7 @@ vless://uuid@example.com:443?type=ws&security=tls&path=/websocket#VLESS节点
 
                                       {/* 操作按钮组 */}
                                       <div
-                                        className='flex items-center justify-center gap-2 border-t pt-2'
+                                        className='flex flex-wrap items-center justify-center gap-2 border-t pt-2'
                                         onClick={(e) => e.stopPropagation()}
                                       >
                                         {node.clash && (
@@ -5369,18 +5403,33 @@ vless://uuid@example.com:443?type=ws&security=tls&path=/websocket#VLESS节点
                                           </Button>
                                         )}
                                         {node.clash && node.isSaved && (
-                                          <Button
-                                            variant='outline'
-                                            size='sm'
-                                            className='flex-1'
-                                            onClick={() =>
-                                              node.isSaved &&
-                                              handleCopyUri(node.dbNode!)
-                                            }
-                                          >
-                                            <Copy className='mr-1 size-4' />
-                                            复制
-                                          </Button>
+                                          <>
+                                            <Button
+                                              variant='outline'
+                                              size='sm'
+                                              className='flex-1'
+                                              onClick={() =>
+                                                node.isSaved &&
+                                                handleCopyUri(node.dbNode!)
+                                              }
+                                            >
+                                              <Copy className='mr-1 size-4' />
+                                              复制
+                                            </Button>
+                                            <Button
+                                              variant='outline'
+                                              size='sm'
+                                              className='flex-1'
+                                              title='显示节点二维码'
+                                              aria-label='显示节点二维码'
+                                              onClick={() =>
+                                                handleShowQrCode(node.dbNode!)
+                                              }
+                                            >
+                                              <QrCode className='mr-1 size-4' />
+                                              二维码
+                                            </Button>
+                                          </>
                                         )}
                                         <AlertDialog>
                                           <AlertDialogTrigger asChild>
@@ -5463,7 +5512,7 @@ vless://uuid@example.com:443?type=ws&security=tls&path=/websocket#VLESS节点
                                   标签
                                 </TableHead>
                                 <TableHead
-                                  style={{ width: '70px' }}
+                                  style={{ width: '132px' }}
                                   className='text-center'
                                 >
                                   配置
@@ -6123,17 +6172,31 @@ vless://uuid@example.com:443?type=ws&security=tls&path=/websocket#VLESS节点
                                             <Eye className='h-4 w-4' />
                                           </Button>
                                           {node.isSaved && (
-                                            <Button
-                                              variant='ghost'
-                                              size='icon'
-                                              className='h-7 w-7'
-                                              title='复制 URI'
-                                              onClick={() =>
-                                                handleCopyUri(node.dbNode!)
-                                              }
-                                            >
-                                              <Copy className='h-4 w-4' />
-                                            </Button>
+                                            <>
+                                              <Button
+                                                variant='ghost'
+                                                size='icon'
+                                                className='h-7 w-7'
+                                                title='复制 URI'
+                                                onClick={() =>
+                                                  handleCopyUri(node.dbNode!)
+                                                }
+                                              >
+                                                <Copy className='h-4 w-4' />
+                                              </Button>
+                                              <Button
+                                                variant='ghost'
+                                                size='icon'
+                                                className='h-7 w-7'
+                                                title='显示节点二维码'
+                                                aria-label='显示节点二维码'
+                                                onClick={() =>
+                                                  handleShowQrCode(node.dbNode!)
+                                                }
+                                              >
+                                                <QrCode className='h-4 w-4' />
+                                              </Button>
+                                            </>
                                           )}
                                         </div>
                                       ) : (
@@ -6209,7 +6272,7 @@ vless://uuid@example.com:443?type=ws&security=tls&path=/websocket#VLESS节点
                                 标签
                               </TableHead>
                               <TableHead
-                                style={{ width: '70px' }}
+                                style={{ width: '132px' }}
                                 className='text-center'
                               >
                                 配置
@@ -6644,7 +6707,7 @@ vless://uuid@example.com:443?type=ws&security=tls&path=/websocket#VLESS节点
                                       </div>
                                       {/* 配置按钮 */}
                                       <div
-                                        style={{ width: '70px' }}
+                                        style={{ width: '132px' }}
                                         className='shrink-0 text-center'
                                         onClick={(e) => e.stopPropagation()}
                                       >
@@ -6681,6 +6744,18 @@ vless://uuid@example.com:443?type=ws&security=tls&path=/websocket#VLESS节点
                                                   }
                                                 >
                                                   <Copy className='h-3.5 w-3.5' />
+                                                </Button>
+                                                <Button
+                                                  variant='ghost'
+                                                  size='icon'
+                                                  className='h-7 w-7'
+                                                  title='显示节点二维码'
+                                                  aria-label='显示节点二维码'
+                                                  onClick={() =>
+                                                    handleShowQrCode(node.dbNode!)
+                                                  }
+                                                >
+                                                  <QrCode className='h-3.5 w-3.5' />
                                                 </Button>
                                                 <Button
                                                   variant='ghost'
@@ -6785,7 +6860,7 @@ vless://uuid@example.com:443?type=ws&security=tls&path=/websocket#VLESS节点
                                   服务器地址
                                 </TableHead>
                                 <TableHead
-                                  style={{ width: '80px' }}
+                                  style={{ width: '160px' }}
                                   className='text-center'
                                 >
                                   配置
@@ -7585,6 +7660,20 @@ vless://uuid@example.com:443?type=ws&security=tls&path=/websocket#VLESS节点
                                           >
                                             <Copy className='h-4 w-4' />
                                           </Button>
+                                          {node.isSaved && (
+                                            <Button
+                                              variant='ghost'
+                                              size='icon'
+                                              className='h-8 w-8'
+                                              title='显示节点二维码'
+                                              aria-label='显示节点二维码'
+                                              onClick={() =>
+                                                handleShowQrCode(node.dbNode!)
+                                              }
+                                            >
+                                              <QrCode className='h-4 w-4' />
+                                            </Button>
+                                          )}
                                           <Button
                                             variant='ghost'
                                             size='icon'
@@ -7680,7 +7769,7 @@ vless://uuid@example.com:443?type=ws&security=tls&path=/websocket#VLESS节点
                                 服务器地址
                               </TableHead>
                               <TableHead
-                                style={{ width: '80px' }}
+                                style={{ width: '132px' }}
                                 className='text-center'
                               >
                                 配置
@@ -8242,7 +8331,7 @@ vless://uuid@example.com:443?type=ws&security=tls&path=/websocket#VLESS节点
                                       </div>
                                       {/* 配置按钮 */}
                                       <div
-                                        style={{ width: '80px' }}
+                                        style={{ width: '132px' }}
                                         className='shrink-0 text-center'
                                         onClick={(e) => e.stopPropagation()}
                                       >
@@ -8279,6 +8368,18 @@ vless://uuid@example.com:443?type=ws&security=tls&path=/websocket#VLESS节点
                                                   }
                                                 >
                                                   <Copy className='h-3.5 w-3.5' />
+                                                </Button>
+                                                <Button
+                                                  variant='ghost'
+                                                  size='icon'
+                                                  className='h-7 w-7'
+                                                  title='显示节点二维码'
+                                                  aria-label='显示节点二维码'
+                                                  onClick={() =>
+                                                    handleShowQrCode(node.dbNode!)
+                                                  }
+                                                >
+                                                  <QrCode className='h-3.5 w-3.5' />
                                                 </Button>
                                                 <Button
                                                   variant='ghost'
@@ -8607,6 +8708,8 @@ vless://uuid@example.com:443?type=ws&security=tls&path=/websocket#VLESS节点
           </div>
         </DialogContent>
       </Dialog>
+
+      <NodeQrCodeDialog node={qrNode} onClose={() => setQrNode(null)} />
 
       {/* URI 手动复制对话框 */}
       <Dialog open={uriDialogOpen} onOpenChange={setUriDialogOpen}>

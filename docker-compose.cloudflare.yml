@@ -1,0 +1,46 @@
+name: miaomiaowu-tunnel
+
+services:
+  miaomiaowu:
+    # Build this checkout so local changes are included in the deployed app.
+    image: ${MMW_IMAGE:-miaomiaowu-custom:local}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    pull_policy: never
+    restart: unless-stopped
+    user: root
+    environment:
+      HOST: 0.0.0.0
+      PORT: "8080"
+    # No host port mapping. cloudflared connects over the Compose network.
+    expose:
+      - "8080"
+    volumes:
+      - ./data:/app/data
+      - ./data/subscribes:/app/subscribes
+      - ./data/rule_templates:/app/rule_templates
+    networks:
+      - tunnel
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 3s
+      start_period: 30s
+      retries: 3
+
+  cloudflared:
+    image: ${CLOUDFLARED_IMAGE:-cloudflare/cloudflared:latest}
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?Set CLOUDFLARE_TUNNEL_TOKEN in .env.cloudflare}
+    depends_on:
+      miaomiaowu:
+        condition: service_healthy
+    networks:
+      - tunnel
+
+networks:
+  # Keep outbound connectivity for Tunnel, external subscriptions and probes.
+  tunnel:

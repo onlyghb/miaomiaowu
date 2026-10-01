@@ -24,6 +24,7 @@ go.work.sum
 
 # env file
 .env
+.env.cloudflare
 
 traffic-info-*
 .claude 
@@ -37,4 +38,6 @@ miaomiaowu.db
 .idea
 VALIDATION_INTEGRATION_PLAN.md
 *.md
+!docs/
+!docs/*.md
 bin/*

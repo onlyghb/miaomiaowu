@@ -28,6 +28,9 @@ miaomiaowu/node_modules/
 Thumbs.db
 
 # Data
+data/
+.env
+.env.*
 *.db
 *.sqlite
 # Note: subscribes/*.yaml and rule_templates/*.yaml files are needed for go:embed, so don't exclude them

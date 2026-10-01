@@ -29,6 +29,13 @@
 
 ## 安装部署
 
+### 定制版本：节点二维码、Cloudflare Tunnel 与上游同步
+
+节点列表的“复制 URI”旁新增二维码按钮，支持手机、平板和桌面端的展开及虚拟列表模式。二维码根据当前已保存节点的 Clash 配置生成，与复制 URI 的内容一致。
+
+- [Docker Compose + Cloudflare Tunnel 部署](docs/cloudflare-tunnel.md)：从当前源码构建，通过域名访问，不映射 VPS 端口。
+- [Fork、推送到自己的 GitHub 与同步上游](docs/fork-and-sync.md)：配置 `origin` / `upstream`，复用 GHCR 构建，并可选通过 Action 创建同步 PR。
+
 ### 方式 1：Docker 部署（推荐）
 
 使用 Docker 是最简单快捷的部署方式，无需配置任何依赖环境。
